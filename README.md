@@ -4,7 +4,7 @@ A project supporting basic elliptic curve arithmetic and two common discrete log
 
 ## Table of Contents
 
-- [ECC Calculator](# ECC Calculator)
+- [ECC Calculator](#ECC-Calculator)
   - [Table of Contents](#table-of-contents)
   - [Screenshots](#screenshots)
   - [Features](#features)
