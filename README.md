@@ -30,7 +30,7 @@ To use this extension, you will need
 
 - Numbthy file downloaded in the working directory. The source code uses various methods of numbthy file for calculation purposes.
 
-### Prerequisite: Install Gnome Tweaks
+### Prerequisite: Install Numbthy
 Download numbthy file from [here](https://github.com/Robert-Campbell-256/Number-Theory-Python/blob/master/numbthy.py).
 ### How to run
 - Download the repository and extract the contents 
