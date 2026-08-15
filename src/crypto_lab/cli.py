@@ -17,6 +17,7 @@ from .number_theory import mod_pow
 from .primality import check_primality
 from .rsa import RSAKeyPair
 from .trace import TraceEvent
+from .course_cli import COURSE_RUNNERS, register_course_commands
 
 
 def _integer(value: str) -> int:
@@ -70,7 +71,7 @@ def _parser() -> argparse.ArgumentParser:
         description="Inspect the mechanics taught in an introductory cryptography class.",
         epilog=EDUCATIONAL_WARNING,
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.3.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.4.0")
     commands = parser.add_subparsers(dest="command", required=True)
 
     factor = commands.add_parser("factor", help="factor an integer")
@@ -132,6 +133,7 @@ def _parser() -> argparse.ArgumentParser:
     feistel.add_argument("--mode", choices=("ecb", "cbc"), default="cbc")
     feistel.add_argument("--iv", default="0001020304050607", help="8-byte CBC IV in hex")
     _add_output_options(feistel)
+    register_course_commands(commands)
     return parser
 
 
@@ -297,6 +299,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "modpow": _run_modpow,
         "rsa-demo": _run_rsa,
         "feistel-demo": _run_feistel,
+        **COURSE_RUNNERS,
     }
     try:
         return runners[args.command](args)

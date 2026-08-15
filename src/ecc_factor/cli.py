@@ -71,7 +71,7 @@ def _parser() -> argparse.ArgumentParser:
         metavar="N",
         help="CFRAC convergent budget",
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.3.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.4.0")
     return parser
 
 

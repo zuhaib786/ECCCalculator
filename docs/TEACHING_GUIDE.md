@@ -123,11 +123,28 @@ Security discussion: CBC requires an unpredictable IV and does not itself
 authenticate ciphertext. The toy network has not been cryptanalyzed and must
 never replace AES or an authenticated construction such as AES-GCM.
 
-## Extending the course
+## 7. Continue through the full course
 
-Good next modules are classical substitution/transposition ciphers, finite
-fields, Diffie–Hellman, ElGamal, hashes/Merkle–Damgård structure, MACs, and
-signatures. Each should follow the same contract used here:
+The SDK now includes the rest of a first undergraduate course. Start by listing
+the dependency-ordered catalogue, then inspect any entry by slug:
+
+```console
+uv run crypto-lab lessons
+uv run crypto-lab lessons security-definitions
+```
+
+The remaining teaching sequence is:
+
+1. Classical ciphers, frequency/Kasiski analysis, and perfect secrecy.
+2. Security games, entropy, randomness, nonces, salts, and KDFs.
+3. AES internals, stream ciphers, modes, and authenticated encryption.
+4. Hash structure, collision bounds, MACs, and length extension.
+5. Groups, finite fields, discrete logs, DH/ECDH, and ElGamal.
+6. RSA, hybrid encryption, signatures, certificates, and TLS transcripts.
+7. Shamir sharing, timing/padding-oracle labs, and protocol composition.
+8. Optional Schnorr, LWE, additive MPC, and BB84 enrichment.
+
+Every unit follows the same contract:
 
 - a quiet, typed SDK;
 - structured opt-in traces instead of `print` inside algorithms;
@@ -135,3 +152,6 @@ signatures. Each should follow the same contract used here:
 - round-trip, known-answer, invalid-input, and misconception-focused tests;
 - an explicit boundary between a teaching construction and secure production
   cryptography.
+
+The complete weekly sequence, outcomes, assessment suggestions, and capstone
+are in `docs/COURSE_OUTLINE.md`.
