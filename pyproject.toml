@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "crypto-classroom"
+version = "0.2.0"
+description = "Inspectable cryptography teaching primitives, SDK, and CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Education",
+  "Programming Language :: Python :: 3",
+  "Security :: Cryptography",
+  "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Repository = "https://github.com/zuhaib786/ECCCalculator"
+
+[project.scripts]
+crypto-lab = "crypto_lab.cli:main"
+ecc-factor = "ecc_factor.cli:main"
+
+[dependency-groups]
+dev = []
+
+[tool.uv]
+package = true
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

@@ -1,0 +1,3 @@
+include uv.lock
+recursive-include docs *.md
+
