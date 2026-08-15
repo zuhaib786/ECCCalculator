@@ -13,6 +13,13 @@ from crypto_lab import (
     pkcs7_unpad,
 )
 from crypto_lab.feistel import FeistelMessage, ToyFeistelCipher
+from crypto_lab.primality import (
+    check_primality,
+    fermat_test,
+    jacobi_symbol,
+    miller_rabin_test,
+    solovay_strassen_test,
+)
 
 
 class EncodingTests(unittest.TestCase):
@@ -63,6 +70,24 @@ class RSATests(unittest.TestCase):
     def test_non_prime_key_input_is_rejected(self) -> None:
         with self.assertRaises(ValueError):
             RSAKeyPair.from_primes(15, 53, public_exponent=17)
+
+
+class PrimalityTests(unittest.TestCase):
+    def test_jacobi_symbol(self) -> None:
+        self.assertEqual(jacobi_symbol(2, 7), 1)
+        self.assertEqual(jacobi_symbol(2, 3), -1)
+
+    def test_carmichael_number_fools_fermat_but_not_miller_rabin(self) -> None:
+        self.assertTrue(fermat_test(561, [2]))
+        self.assertFalse(miller_rabin_test(561, [2]))
+
+    def test_solovay_strassen_witness(self) -> None:
+        self.assertFalse(solovay_strassen_test(15, [2]))
+
+    def test_deterministic_64_bit_miller_rabin_profile(self) -> None:
+        result = check_primality(2**61 - 1)
+        self.assertTrue(result.probably_prime)
+        self.assertTrue(result.deterministic)
 
 
 class FeistelTests(unittest.TestCase):

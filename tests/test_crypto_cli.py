@@ -58,6 +58,31 @@ class CryptoCliTests(unittest.TestCase):
         status, stdout, stderr = self.run_cli("factor", "91", "--quiet")
         self.assertEqual((status, stdout, stderr), (0, "7 13\n", ""))
 
+    def test_continued_fraction_factor_command(self) -> None:
+        status, stdout, stderr = self.run_cli(
+            "factor", str(1_009 * 1_013), "-m", "cfrac", "--quiet"
+        )
+        self.assertEqual((status, stdout, stderr), (0, "1009 1013\n", ""))
+
+    def test_fermat_carmichael_lesson(self) -> None:
+        status, stdout, stderr = self.run_cli(
+            "prime", "561", "--test", "fermat", "--base", "2", "--json"
+        )
+        result = json.loads(stdout)
+        self.assertEqual(status, 0)
+        self.assertTrue(result["probably_prime"])
+        self.assertFalse(result["deterministic"])
+        self.assertEqual(stderr, "")
+
+    def test_miller_rabin_finds_carmichael_witness(self) -> None:
+        status, stdout, stderr = self.run_cli(
+            "prime", "561", "--test", "miller-rabin", "--base", "2", "-vv"
+        )
+        self.assertEqual(status, 0)
+        self.assertIn("composite", stdout)
+        self.assertIn("witness: 2", stdout)
+        self.assertIn("[primality.miller_rabin_round]", stderr)
+
 
 if __name__ == "__main__":
     unittest.main()

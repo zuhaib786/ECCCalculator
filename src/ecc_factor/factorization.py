@@ -10,7 +10,7 @@ from typing import Literal
 from .elliptic import Curve, NonInvertibleError, Point
 from .events import FactorizationEvent, ProgressCallback
 
-Method = Literal["auto", "trial", "rho", "ecm"]
+Method = Literal["auto", "trial", "rho", "ecm", "cfrac"]
 
 
 class FactorizationError(RuntimeError):
@@ -181,11 +181,22 @@ def _ecm(
         discriminant_gcd = gcd(curve.discriminant, number)
         reporter.emit(
             "ecm.curve",
-            f"ECM curve {curve_number}/{curves}",
+            f"ECM curve {curve_number}/{curves}: y^2 = x^3 + {a}x + {b} (mod n)",
             curve=curve_number,
             bound=bound,
+            a=a,
+            b=b,
+            start_x=x,
+            start_y=y,
+            discriminant_gcd=discriminant_gcd,
         )
         if 1 < discriminant_gcd < number:
+            reporter.emit(
+                "ecm.discriminant_factor",
+                f"curve discriminant revealed gcd {discriminant_gcd}",
+                factor=discriminant_gcd,
+                curve=curve_number,
+            )
             return discriminant_gcd
         if discriminant_gcd == number:
             continue
@@ -194,6 +205,17 @@ def _ecm(
         try:
             for index, power in enumerate(prime_powers, start=1):
                 point = curve.multiply(power, point)
+                reporter.emit(
+                    "ecm.multiply",
+                    f"multiply by prime power {power} ({index}/{len(prime_powers)})",
+                    level=2,
+                    curve=curve_number,
+                    power=power,
+                    completed=index,
+                    total=len(prime_powers),
+                    point_x=point.x,
+                    point_y=point.y,
+                )
                 if index % 25 == 0:
                     reporter.emit(
                         "ecm.progress",
@@ -204,12 +226,162 @@ def _ecm(
                         total=len(prime_powers),
                     )
         except NonInvertibleError as error:
+            reporter.emit(
+                "ecm.inverse_failure",
+                f"inverse failed: gcd({error.denominator}, n) = {error.divisor}",
+                curve=curve_number,
+                denominator=error.denominator,
+                factor=error.divisor,
+                modulus=number,
+            )
             if 1 < error.divisor < number:
                 return error.divisor
 
     raise FactorizationError(
         f"ECM did not find a factor of {number} using {curves} curves "
         f"with bound {bound}"
+    )
+
+
+def _continued_fraction_factor(
+    number: int,
+    reporter: _Reporter,
+    *,
+    bound: int,
+    max_steps: int,
+) -> int:
+    """Find a factor with the continued-fraction factorization method (CFRAC)."""
+
+    root = isqrt(number)
+    if root * root == number:
+        return root
+
+    factor_base = [2]
+    for prime in _primes_up_to(bound):
+        if prime == 2:
+            continue
+        if number % prime == 0:
+            return prime
+        # Euler's criterion selects primes for which n is a quadratic residue.
+        if pow(number % prime, (prime - 1) // 2, prime) == 1:
+            factor_base.append(prime)
+    reporter.emit(
+        "cfrac.factor_base",
+        f"CFRAC factor base has {len(factor_base)} primes up to {bound}",
+        bound=bound,
+        factor_base=tuple(factor_base),
+    )
+
+    # Each relation stores (convergent numerator modulo n, signed exponents).
+    relations: list[tuple[int, tuple[int, ...]]] = []
+    # Gaussian-elimination rows map a pivot bit to (parity vector, relation mask).
+    basis: dict[int, tuple[int, int]] = {}
+
+    m, denominator, coefficient = 0, 1, root
+    numerator_older, numerator_old = 0, 1
+    denominator_older, denominator_old = 1, 0
+
+    for step in range(max_steps):
+        numerator = coefficient * numerator_old + numerator_older
+        convergent_denominator = coefficient * denominator_old + denominator_older
+        residue = numerator * numerator - number * convergent_denominator**2
+        reporter.emit(
+            "cfrac.convergent",
+            f"convergent {step}: residue {residue}",
+            level=2,
+            step=step,
+            numerator=numerator,
+            denominator=convergent_denominator,
+            residue=residue,
+        )
+
+        exponents = [1 if residue < 0 else 0]
+        remainder = abs(residue)
+        for prime in factor_base:
+            exponent = 0
+            while remainder and remainder % prime == 0:
+                remainder //= prime
+                exponent += 1
+            exponents.append(exponent)
+
+        if remainder == 1:
+            relation_index = len(relations)
+            relation_exponents = tuple(exponents)
+            relations.append((numerator % number, relation_exponents))
+            parity = 0
+            for index, exponent in enumerate(relation_exponents):
+                if exponent & 1:
+                    parity |= 1 << index
+            reporter.emit(
+                "cfrac.relation",
+                f"smooth relation {relation_index + 1}: residue {residue}",
+                relation=relation_index,
+                step=step,
+                numerator=numerator % number,
+                residue=residue,
+                exponents=relation_exponents,
+                parity=parity,
+            )
+
+            vector = parity
+            combination = 1 << relation_index
+            while vector:
+                pivot = vector.bit_length() - 1
+                if pivot not in basis:
+                    basis[pivot] = (vector, combination)
+                    break
+                row, row_combination = basis[pivot]
+                vector ^= row
+                combination ^= row_combination
+
+            if vector == 0:
+                selected = tuple(
+                    index
+                    for index in range(len(relations))
+                    if combination & (1 << index)
+                )
+                reporter.emit(
+                    "cfrac.dependency",
+                    f"parity dependency combines relations {selected}",
+                    relations=selected,
+                )
+                x_value = 1
+                exponent_totals = [0] * (len(factor_base) + 1)
+                for index in selected:
+                    relation_numerator, relation_powers = relations[index]
+                    x_value = x_value * relation_numerator % number
+                    exponent_totals = [
+                        total + exponent
+                        for total, exponent in zip(
+                            exponent_totals, relation_powers, strict=True
+                        )
+                    ]
+                y_value = 1
+                for prime, exponent in zip(
+                    factor_base, exponent_totals[1:], strict=True
+                ):
+                    y_value = y_value * pow(prime, exponent // 2, number) % number
+                for difference in (x_value - y_value, x_value + y_value):
+                    divisor = gcd(abs(difference), number)
+                    reporter.emit(
+                        "cfrac.gcd",
+                        f"gcd({abs(difference)}, n) = {divisor}",
+                        x=x_value,
+                        y=y_value,
+                        divisor=divisor,
+                    )
+                    if 1 < divisor < number:
+                        return divisor
+
+        numerator_older, numerator_old = numerator_old, numerator
+        denominator_older, denominator_old = denominator_old, convergent_denominator
+        m = denominator * coefficient - m
+        denominator = (number - m * m) // denominator
+        coefficient = (root + m) // denominator
+
+    raise FactorizationError(
+        f"CFRAC did not find a factor of {number} after {max_steps} convergents "
+        f"with factor-base bound {bound}"
     )
 
 
@@ -241,6 +413,8 @@ def factorize(
     trial_limit: int = 100,
     ecm_bound: int = 2_000,
     ecm_curves: int = 50,
+    cfrac_bound: int = 100,
+    cfrac_steps: int = 10_000,
 ) -> tuple[int, ...]:
     """Return the prime factors of ``number`` in ascending order.
 
@@ -249,24 +423,28 @@ def factorize(
 
     Args:
         number: Integer to factor; must be at least 2.
-        method: ``auto``, ``trial``, ``rho``, or ``ecm``.
+        method: ``auto``, ``trial``, ``rho``, ``ecm``, or ``cfrac``.
         seed: Optional seed for Pollard rho and ECM.
         progress: Optional callback for :class:`FactorizationEvent` objects.
         trial_limit: Small-prime preprocessing limit (ignored by ``trial``).
         ecm_bound: Stage-one smoothness bound used by ECM.
         ecm_curves: Maximum number of random curves tried by ECM.
+        cfrac_bound: Largest prime considered for CFRAC smooth relations.
+        cfrac_steps: Maximum continued-fraction convergents considered by CFRAC.
     """
 
     if isinstance(number, bool) or not isinstance(number, int):
         raise TypeError("number must be an integer")
     if number < 2:
         raise ValueError("number must be at least 2")
-    if method not in {"auto", "trial", "rho", "ecm"}:
+    if method not in {"auto", "trial", "rho", "ecm", "cfrac"}:
         raise ValueError(f"unknown factorization method: {method}")
     if trial_limit < 2:
         raise ValueError("trial_limit must be at least 2")
     if ecm_bound < 2 or ecm_curves < 1:
         raise ValueError("ecm_bound must be >= 2 and ecm_curves must be >= 1")
+    if cfrac_bound < 2 or cfrac_steps < 1:
+        raise ValueError("cfrac_bound must be >= 2 and cfrac_steps must be >= 1")
 
     reporter = _Reporter(progress)
     rng: Random = Random(seed) if seed is not None else SystemRandom()
@@ -303,7 +481,7 @@ def factorize(
             divisor = _trial_factor(current, reporter)
         elif selected == "rho":
             divisor = _pollard_rho(current, rng, reporter)
-        else:
+        elif selected == "ecm":
             try:
                 divisor = _ecm(
                     current,
@@ -320,6 +498,13 @@ def factorize(
                     "ECM budget exhausted; falling back to Pollard rho",
                 )
                 divisor = _pollard_rho(current, rng, reporter)
+        else:
+            divisor = _continued_fraction_factor(
+                current,
+                reporter,
+                bound=cfrac_bound,
+                max_steps=cfrac_steps,
+            )
 
         reporter.emit(
             "factor.split",
@@ -348,4 +533,3 @@ __all__ = [
     "factorize",
     "is_probable_prime",
 ]
-

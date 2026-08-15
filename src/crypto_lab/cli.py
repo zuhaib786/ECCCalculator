@@ -14,6 +14,7 @@ from . import EDUCATIONAL_WARNING
 from .encoding import bytes_to_int, split_blocks
 from .feistel import ToyFeistelCipher
 from .number_theory import mod_pow
+from .primality import check_primality
 from .rsa import RSAKeyPair
 from .trace import TraceEvent
 
@@ -69,16 +70,41 @@ def _parser() -> argparse.ArgumentParser:
         description="Inspect the mechanics taught in an introductory cryptography class.",
         epilog=EDUCATIONAL_WARNING,
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
+    parser.add_argument("--version", action="version", version="%(prog)s 0.3.0")
     commands = parser.add_subparsers(dest="command", required=True)
 
     factor = commands.add_parser("factor", help="factor an integer")
     factor.add_argument("number", type=_integer_at_least_two)
-    factor.add_argument("-m", "--method", choices=("auto", "trial", "rho", "ecm"), default="auto")
+    factor.add_argument(
+        "-m",
+        "--method",
+        choices=("auto", "trial", "rho", "ecm", "cfrac"),
+        default="auto",
+    )
     factor.add_argument("--seed", type=int)
     factor.add_argument("--ecm-bound", type=int, default=2_000)
     factor.add_argument("--ecm-curves", type=int, default=50)
+    factor.add_argument("--cfrac-bound", type=int, default=100)
+    factor.add_argument("--cfrac-steps", type=int, default=10_000)
     _add_output_options(factor, quiet=True)
+
+    prime = commands.add_parser("prime", help="compare classroom primality tests")
+    prime.add_argument("number", type=_integer)
+    prime.add_argument(
+        "--test",
+        choices=("trial", "fermat", "miller-rabin", "solovay-strassen"),
+        default="miller-rabin",
+    )
+    prime.add_argument("--rounds", type=_positive_integer, default=8)
+    prime.add_argument("--seed", type=int)
+    prime.add_argument(
+        "--base",
+        type=_integer,
+        action="append",
+        dest="bases",
+        help="use an explicit test base; may be repeated",
+    )
+    _add_output_options(prime)
 
     encode = commands.add_parser("encode", help="inspect UTF-8, hex, integers, and blocks")
     encode.add_argument("text")
@@ -126,6 +152,8 @@ def _run_factor(args: argparse.Namespace) -> int:
         progress=callback,
         ecm_bound=args.ecm_bound,
         ecm_curves=args.ecm_curves,
+        cfrac_bound=args.cfrac_bound,
+        cfrac_steps=args.cfrac_steps,
     )
     if args.json:
         print(json.dumps({"number": args.number, "factors": list(factors), "method": args.method}, sort_keys=True))
@@ -135,6 +163,37 @@ def _run_factor(args: argparse.Namespace) -> int:
         counts = Counter(factors)
         terms = [str(prime) if count == 1 else f"{prime}^{count}" for prime, count in counts.items()]
         print(f"{args.number} = {' * '.join(terms)}")
+    return 0
+
+
+def _run_prime(args: argparse.Namespace) -> int:
+    callback = _trace_printer(args.verbose) if args.verbose else None
+    result = check_primality(
+        args.number,
+        method=args.test,
+        rounds=args.rounds,
+        seed=args.seed,
+        bases=args.bases,
+        trace=callback,
+    )
+    payload = {
+        "number": result.number,
+        "test": result.method,
+        "probably_prime": result.probably_prime,
+        "deterministic": result.deterministic,
+        "bases": list(result.bases),
+        "witness": result.witness,
+    }
+    if args.json:
+        print(json.dumps(payload, sort_keys=True))
+    else:
+        verdict = "prime" if result.probably_prime and result.deterministic else (
+            "probably prime" if result.probably_prime else "composite"
+        )
+        qualifier = "deterministic" if result.deterministic else "probabilistic"
+        print(f"{result.number}: {verdict} ({result.method}, {qualifier})")
+        if result.witness is not None:
+            print(f"witness: {result.witness}")
     return 0
 
 
@@ -233,6 +292,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     runners = {
         "factor": _run_factor,
+        "prime": _run_prime,
         "encode": _run_encode,
         "modpow": _run_modpow,
         "rsa-demo": _run_rsa,

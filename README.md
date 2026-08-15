@@ -12,9 +12,12 @@ favor readable steps and structured traces over speed or production hardening.
 
 - Encoding: text, bytes, hexadecimal, integers, fixed-size blocks, XOR, and
   PKCS#7-style padding.
-- Number theory: extended Euclid, modular inverses, visible
-  square-and-multiply exponentiation, and primality testing.
-- Factorization: trial division, Brent's Pollard rho, and stage-one Lenstra ECM.
+- Number theory: extended Euclid, modular inverses, and visible
+  square-and-multiply exponentiation.
+- Primality: exact trial testing plus Fermat, Miller-Rabin, Solovay-Strassen,
+  Jacobi symbols, witnesses, and reproducible probabilistic rounds.
+- Factorization: trial division, Brent's Pollard rho, CFRAC continued-fraction
+  relations, and stage-one Lenstra ECM.
 - Elliptic curves: reusable point addition and scalar multiplication over a
   prime or composite modulus.
 - Textbook RSA: key derivation from classroom primes, integer operations, byte
@@ -26,7 +29,7 @@ favor readable steps and structured traces over speed or production hardening.
 
 ## Setup with uv
 
-Python 3.10 or newer and [uv](https://docs.astral.sh/uv/) are required for the
+Python 3.11 or newer and [uv](https://docs.astral.sh/uv/) are required for the
 project workflow.
 
 ```console
@@ -51,6 +54,14 @@ Show square-and-multiply. `-vv` prints each exponent-bit decision to stderr:
 uv run crypto-lab modpow 4 13 497 -vv
 ```
 
+Compare primality tests, including a classic Fermat-test trap:
+
+```console
+uv run crypto-lab prime 561 --test fermat --base 2 -vv
+uv run crypto-lab prime 561 --test miller-rabin --base 2 -vv
+uv run crypto-lab prime 2305843009213693951 --test miller-rabin --json
+```
+
 Run a complete textbook RSA round trip:
 
 ```console
@@ -71,7 +82,30 @@ command:
 ```console
 uv run crypto-lab factor 1000036000099 --method rho --seed 7 -v
 uv run ecc-factor 10097063 --method ecm --seed 11
+uv run ecc-factor 1022117 --method cfrac --cfrac-bound 50 -vv
 ```
+
+## Manim ECM animation
+
+The repository includes a Manim scene driven by a real, deterministic SDK trace.
+It factors the 42-digit number
+`171672454111613454817272489449327062678543` as `1009 * (2^127 - 1)`.
+The scene animates curve selection, every stage-one prime-power multiplication,
+the failed modular inverse, the gcd leak, and the final factorization.
+
+Install only the optional animation dependencies and render a quick preview:
+
+```console
+uv sync --extra animation
+uv run --extra animation manim checkhealth
+uv run --extra animation manim -pql \
+  examples/manim_ecm_factorization.py EcmFactorizationScene
+```
+
+Use `-pqh` instead of `-pql` for a high-quality render. Manim may require Cairo,
+Pango, or related system libraries depending on the operating system. See the
+[Manim ECM example guide](docs/MANIM_ECM.md) for the event mapping and extension
+ideas.
 
 All commands support concise output. Teaching demos and factorization also offer
 JSON for notebooks/scripts; verbose traces always go to stderr, so stdout stays
@@ -126,14 +160,16 @@ src/
 ├── crypto_lab/              # Unified educational SDK and CLI
 │   ├── encoding.py          # Representation, blocks, XOR, padding
 │   ├── number_theory.py     # Euclid and square-and-multiply
+│   ├── primality.py         # Fermat, Miller-Rabin, Solovay-Strassen
 │   ├── rsa.py               # Textbook RSA lesson implementation
 │   ├── feistel.py           # Toy block cipher plus ECB/CBC
 │   └── trace.py             # Structured teaching events
 └── ecc_factor/              # Focused factorization and curve package
-    ├── factorization.py     # Trial, Pollard rho, ECM
+    ├── factorization.py     # Trial, Pollard rho, CFRAC, ECM
     └── elliptic.py          # Composite-modulus curve arithmetic
 tests/                       # SDK and CLI behavior
 docs/TEACHING_GUIDE.md       # Suggested classroom sequence
+examples/                    # Trace-backed runnable demonstrations
 ```
 
 ## Development

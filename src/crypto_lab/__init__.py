@@ -14,6 +14,15 @@ from .encoding import (
 )
 from .feistel import FeistelMessage, ToyFeistelCipher
 from .number_theory import extended_gcd, mod_inverse, mod_pow
+from .primality import (
+    PrimalityResult,
+    check_primality,
+    fermat_test,
+    jacobi_symbol,
+    miller_rabin_test,
+    solovay_strassen_test,
+    trial_primality_test,
+)
 from .rsa import RSAEncryptedMessage, RSAKeyPair, RSAPrivateKey, RSAPublicKey
 from .trace import TraceCallback, TraceEvent
 from ecc_factor import factor_counts, factorize, is_probable_prime
@@ -25,6 +34,7 @@ EDUCATIONAL_WARNING = (
 __all__ = [
     "EDUCATIONAL_WARNING",
     "FeistelMessage",
+    "PrimalityResult",
     "RSAEncryptedMessage",
     "RSAKeyPair",
     "RSAPrivateKey",
@@ -33,17 +43,23 @@ __all__ = [
     "TraceEvent",
     "ToyFeistelCipher",
     "bytes_to_int",
+    "check_primality",
     "extended_gcd",
     "factor_counts",
     "factorize",
+    "fermat_test",
     "int_to_bytes",
     "is_probable_prime",
+    "jacobi_symbol",
+    "miller_rabin_test",
     "mod_inverse",
     "mod_pow",
     "pkcs7_pad",
     "pkcs7_unpad",
     "split_blocks",
+    "solovay_strassen_test",
+    "trial_primality_test",
     "xor_bytes",
 ]
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"

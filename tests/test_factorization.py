@@ -26,6 +26,23 @@ class FactorizationTests(unittest.TestCase):
             (1_009, 10_007),
         )
 
+    def test_continued_fraction_factorization(self) -> None:
+        events = []
+        self.assertEqual(
+            factorize(
+                1_009 * 1_013,
+                method="cfrac",
+                cfrac_bound=50,
+                progress=events.append,
+            ),
+            (1_009, 1_013),
+        )
+        codes = [event.code for event in events]
+        self.assertIn("cfrac.convergent", codes)
+        self.assertIn("cfrac.relation", codes)
+        self.assertIn("cfrac.dependency", codes)
+        self.assertIn("cfrac.gcd", codes)
+
     def test_factor_counts(self) -> None:
         self.assertEqual(factor_counts(2**4 * 13**2), {2: 4, 13: 2})
 

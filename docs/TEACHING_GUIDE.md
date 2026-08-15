@@ -34,21 +34,56 @@ Exercises:
 2. Identify exactly which exponent bits trigger multiplication.
 3. Compare the number of steps with naive repeated multiplication.
 
-## 3. Factors and elliptic curves
+## 3. Probable primes and witnesses
 
-Compare trial division and Pollard rho on a modest semiprime, then use ECM:
+Contrast an exact divisor search with three probable-prime tests:
+
+```console
+uv run crypto-lab prime 561 --test trial -vv
+uv run crypto-lab prime 561 --test fermat --base 2 -vv
+uv run crypto-lab prime 561 --test miller-rabin --base 2 -vv
+uv run crypto-lab prime 15 --test solovay-strassen --base 2 -vv
+```
+
+The Carmichael number `561` is the key misconception test: base-2 Fermat calls
+it probably prime, while base-2 Miller-Rabin produces a compositeness witness.
+Discuss the difference between “no witness found” and a proof of primality.
+
+SDK topics: `trial_primality_test`, `fermat_test`, `miller_rabin_test`,
+`solovay_strassen_test`, `jacobi_symbol`, and `check_primality`.
+
+## 4. Factors, continued fractions, and elliptic curves
+
+Compare trial division and Pollard rho on a modest semiprime, build a
+congruence of squares with CFRAC, then use ECM:
 
 ```console
 uv run crypto-lab factor 1000036000099 -m trial -vv
 uv run crypto-lab factor 1000036000099 -m rho --seed 7 -vv
+uv run crypto-lab factor 1022117 -m cfrac --cfrac-bound 50 -vv
 uv run crypto-lab factor 10097063 -m ecm --seed 11 --ecm-bound 200 -vv
 ```
+
+For CFRAC, follow `convergent → smooth residue → exponent parity → dependency →
+gcd`. The parity-vector dependency makes a product of residues into a square,
+producing `x² = y² (mod n)` and the candidates `gcd(x-y,n)` and `gcd(x+y,n)`.
 
 The important ECM observation is that arithmetic modulo a composite may request
 an inverse that does not exist. `NonInvertibleError.divisor` exposes the gcd,
 turning a failed curve operation into a factor.
 
-## 4. Textbook RSA as a composition
+Render the trace-backed animation for a 42-digit example:
+
+```console
+uv sync --extra animation
+uv run --extra animation manim -pql \
+  examples/manim_ecm_factorization.py EcmFactorizationScene
+```
+
+See `docs/MANIM_ECM.md` for why the state-space circle is schematic and how each
+factorization event maps to an animation.
+
+## 5. Textbook RSA as a composition
 
 Use the small classic parameters first:
 
@@ -64,7 +99,7 @@ Security discussion: this implementation has no OAEP, authentication, side-
 channel defenses, secure prime generation, or safe key handling. Deterministic
 textbook RSA leaks equality and is not a deployable encryption scheme.
 
-## 5. Block-cipher structure and modes
+## 6. Block-cipher structure and modes
 
 The `ToyFeistelCipher` is intentionally not a standard cipher. Its round
 function only demonstrates diffusion-like mixing; Feistel structure makes the

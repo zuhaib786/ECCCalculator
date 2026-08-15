@@ -25,13 +25,13 @@ def _positive_int(value: str) -> int:
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="ecc-factor",
-        description="Factor an integer with trial division, Pollard rho, or ECM.",
+        description="Factor an integer with trial division, Pollard rho, CFRAC, or ECM.",
     )
     parser.add_argument("number", type=_positive_int, help="integer to factor")
     parser.add_argument(
         "-m",
         "--method",
-        choices=("auto", "trial", "rho", "ecm"),
+        choices=("auto", "trial", "rho", "ecm", "cfrac"),
         default="auto",
         help="factorization method (default: auto)",
     )
@@ -57,7 +57,21 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--ecm-curves", type=int, default=50, metavar="N", help="ECM curve budget"
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.2.0")
+    parser.add_argument(
+        "--cfrac-bound",
+        type=int,
+        default=100,
+        metavar="B",
+        help="CFRAC factor-base bound",
+    )
+    parser.add_argument(
+        "--cfrac-steps",
+        type=int,
+        default=10_000,
+        metavar="N",
+        help="CFRAC convergent budget",
+    )
+    parser.add_argument("--version", action="version", version="%(prog)s 0.3.0")
     return parser
 
 
@@ -86,6 +100,8 @@ def main(argv: Sequence[str] | None = None) -> int:
             trial_limit=args.trial_limit,
             ecm_bound=args.ecm_bound,
             ecm_curves=args.ecm_curves,
+            cfrac_bound=args.cfrac_bound,
+            cfrac_steps=args.cfrac_steps,
         )
     except (FactorizationError, ValueError) as error:
         print(f"ecc-factor: error: {error}", file=sys.stderr)

@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "crypto-classroom"
-version = "0.2.0"
+version = "0.3.0"
 description = "Inspectable cryptography teaching primitives, SDK, and CLI"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Environment :: Console",
@@ -19,6 +19,9 @@ classifiers = [
 
 [project.urls]
 Repository = "https://github.com/zuhaib786/ECCCalculator"
+
+[project.optional-dependencies]
+animation = ["manim>=0.21,<0.22"]
 
 [project.scripts]
 crypto-lab = "crypto_lab.cli:main"
